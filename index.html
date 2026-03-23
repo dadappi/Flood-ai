@@ -2,55 +2,23 @@
 <html>
 <head>
     <title>Flood AI Map</title>
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <!-- TensorFlow -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
 </head>
 <body>
 
-<h2>Flood Prediction Map</h2>
+<h2>Flood AI Map</h2>
+<p>Klik peta untuk prediksi</p>
 
 <div id="map" style="height: 400px;"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-<script>
-// INIT MAP
-var map = L.map('map').setView([-6.2, 106.8], 10);
-
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-}).addTo(map);
-
-// SIMPLE ML (rule-based mimic)
-function predictFlood(rainfall, elevation) {
-    let score = 0;
-
-    if (rainfall > 100) score += 50;
-    else if (rainfall > 70) score += 30;
-    else score += 10;
-
-    if (elevation < 50) score += 40;
-    else if (elevation < 100) score += 20;
-    else score += 5;
-
-    if (score >= 70) return ["Tinggi", "red"];
-    if (score >= 40) return ["Sedang", "orange"];
-    return ["Aman", "green"];
-}
-
-// CLICK MAP
-map.on('click', function(e) {
-    let rainfall = Math.random() * 120;   // dummy data
-    let elevation = Math.random() * 150;  // dummy data
-
-    let result = predictFlood(rainfall, elevation);
-
-    L.circle(e.latlng, {
-        color: result[1],
-        radius: 500
-    }).addTo(map)
-    .bindPopup("Risiko: " + result[0])
-    .openPopup();
-});
-</script>
+<!-- LINK KE JS -->
+<script src="script.js"></script>
 
 </body>
 </html>
