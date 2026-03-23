@@ -122,22 +122,24 @@ trainModel();
 
 // ===== CLICK MAP =====
 map.on('click', async function(e) {
+    if (!modelReady) {
+        alert("AI masih training...");
+        return;
+    }
+
     let lat = e.latlng.lat;
     let lng = e.latlng.lng;
 
     let elevation = await getElevation(lat, lng);
-    let rainfall = getRainfall();
+    let rainfall = await getRainfall(lat, lng);
 
-    let result = predictFlood(rainfall, elevation);
+    let [status, color, score] = predictFlood(rainfall, elevation);
 
     L.circle(e.latlng, {
-        color: result[1],
+        color: color,
         radius: 500
-    }).addTo(map)
-    .bindPopup(`
-        Risiko: ${result[0]} <br>
-        Elevasi: ${elevation.toFixed(1)} m <br>
-        Hujan: ${rainfall.toFixed(1)} mm
-    `)
-    .openPopup();
+    }).addTo(map);
+
+    heatPoints.push([lat, lng, score]);
+    heatLayer.setLatLngs(heatPoints);
 });
