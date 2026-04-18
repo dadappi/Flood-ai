@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flood Risk AI</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    :root{
+      --bg:#edf2f7;--panel:#ffffff;--ink:#1f2937;--muted:#64748b;
+      --line:#dbe3ef;--shadow:0 10px 28px rgba(15,23,42,.12);
+      --blue:#2f7cf6;--blue2:#1c5fd8;--green:#32b36b;--amber:#f5a524;--red:#e4554d;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    ::-webkit-scrollbar{width:8px;height:8px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#a8c5f0,#8ab3e8);border-radius:999px}
+    ::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,#7ab0e6,#5a96dd)}
+    body{font-family:Arial,sans-serif;background:var(--bg);color:var(--ink);overflow:hidden}
+    .topbar{height:68px;background:linear-gradient(180deg,#202938,#273246);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 18px 0 20px;box-shadow:0 4px 16px rgba(0,0,0,.25);position:relative;z-index:20;border-bottom:1px solid rgba(255,255,255,.05)}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:800;font-size:24px;letter-spacing:.5px}
+    .drop{width:32px;height:32px;border-radius:10px;background:linear-gradient(180deg,#7ad7ff,#2877ff);position:relative;box-shadow:0 4px 12px rgba(40,119,255,.3);transition:all .3s ease}
+    .drop:hover{transform:scale(1.08)}
+    .drop:before{content:"";position:absolute;inset:5px 7px 6px 7px;background:rgba(255,255,255,.55);clip-path:polygon(50% 0%,83% 23%,98% 53%,86% 83%,50% 100%,14% 83%,2% 53%,17% 23%)}
+    .top-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .btn{border:0;border-radius:12px;padding:11px 15px;font-weight:800;cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,.12) inset;transition:all .3s cubic-bezier(.4,0,.2,1)}
+    .btn.primary{background:linear-gradient(180deg,#3f8eff,#2360d6);color:#fff}
+    .btn.primary:hover{transform:translateY(-2px);box-shadow:0 8px 16px rgba(47,124,246,.3)}
+    .btn.ghost{background:#dfe7f8;color:#243247}
+    .btn.ghost:hover{background:#d0dff5;transform:translateY(-2px)}
+    .btn.small{padding:10px 13px;border-radius:10px;font-size:14px}
+    .topbar .btn.ghost.small,.topbar .btn.primary.small{background:#dfe7f8;color:#243247;border-radius:12px;padding:11px 15px;font-weight:800;border:0}
+    .topbar .btn.primary.small{background:linear-gradient(180deg,#3f8eff,#2360d6);color:#fff}
+    .layout{height:calc(100vh - 68px);display:grid;grid-template-columns:320px minmax(0,1fr) 330px;min-height:0}
+    .sidebar{background:linear-gradient(180deg,#eef3fb,#e6edf8);border-right:1px solid #d5deec;overflow:auto;padding:16px 12px 14px;backdrop-filter:blur(2px)}
+    .sidebar.right{border-right:none;border-left:1px solid #d5deec}
+    .intro{font-size:18px;line-height:1.35;font-weight:800;margin:4px 4px 14px;color:#203046;letter-spacing:.3px}
+    .subtle{color:var(--muted);font-size:12px;line-height:1.5;margin:0 4px 12px;letter-spacing:.2px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:14px;transition:all .3s ease}
+    .card:hover{box-shadow:0 15px 35px rgba(15,23,42,.15);border-color:#c0d5e8}
+    .card-header{padding:13px 15px;font-weight:900;font-size:17px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fbfcfe,#f3f6fb);letter-spacing:.3px}
+    .card-body{padding:13px 14px 14px}
+    .var-group{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #eef2f7;transition:all .2s ease}
+    .var-group:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+    .var-top{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px}
+    .var-name{font-weight:800;font-size:15px;color:#23324a;letter-spacing:.3px}
+    .var-value{font-weight:900;font-size:17px;color:#203046;letter-spacing:-.5px}
+    .var-note{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);margin-top:6px;letter-spacing:.2px}
+    .slider{width:100%;accent-color:#4f8ef7;margin:0;height:6px;border-radius:999px;background:linear-gradient(90deg,#a8c5f0,#d9e6f7);outline:none;-webkit-appearance:none;appearance:none;cursor:pointer}
+    .slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:linear-gradient(180deg,#4d91ff,#2360d6);cursor:pointer;box-shadow:0 2px 8px rgba(47,124,246,.4);transition:all .2s ease}
+    .slider::-webkit-slider-thumb:hover{transform:scale(1.2)}
+    .slider::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:linear-gradient(180deg,#4d91ff,#2360d6);cursor:pointer;border:none;box-shadow:0 2px 8px rgba(47,124,246,.4)}
+    .tag{display:inline-block;font-size:11px;font-weight:800;color:#fff;padding:4px 8px;border-radius:999px;margin-left:8px;vertical-align:middle;letter-spacing:.3px;text-transform:uppercase;box-shadow:0 2px 4px rgba(0,0,0,.1)}
+    .tag.inv{background:linear-gradient(180deg,#7a8fa3,#5d6f82)}
+    .tag.w{background:linear-gradient(180deg,#2db876,#1e8c5c)}
+    /* Info button */
+    .info-btn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:linear-gradient(180deg,#4d91ff,#2360d6);color:#fff;font-size:11px;font-weight:900;cursor:pointer;margin-left:6px;vertical-align:middle;box-shadow:0 2px 6px rgba(47,124,246,.35);transition:all .2s ease;user-select:none;border:none;padding:0}
+    .info-btn:hover{transform:scale(1.15);box-shadow:0 4px 10px rgba(47,124,246,.5)}
+    /* Gauge & results */
+    .result-wrap{text-align:center}
+    .gauge{width:100%;height:160px;border-radius:160px 160px 16px 16px;background:conic-gradient(#45c16b 0 30%,#f5c542 30% 60%,#e74c3c 60% 100%);position:relative;margin:6px 0 10px;border:2px solid rgba(0,0,0,.05);overflow:hidden;box-shadow:inset 0 2px 8px rgba(0,0,0,.08)}
+    .gauge:after{content:"";position:absolute;inset:18px 18px 0 18px;background:#fff;border-radius:inherit}
+    .gauge-center{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+    .score{font-size:42px;font-weight:1000;line-height:1;color:#23324a;letter-spacing:-1px}
+    .risk{margin-top:6px;font-size:18px;font-weight:900;letter-spacing:.3px}
+    .risk.low{color:#3aa44d}.risk.medium{color:#d38c08}.risk.high{color:#c5392d}
+    .riskbar{height:12px;background:#e7edf5;border-radius:999px;overflow:hidden;margin:12px 0 10px;box-shadow:inset 0 2px 4px rgba(0,0,0,.05)}
+    .riskbar>div{height:100%;border-radius:inherit;background:linear-gradient(90deg,#45c16b,#f5c542 50%,#e74c3c);box-shadow:0 2px 6px rgba(228,85,77,.3);transition:width .4s ease}
+    .tiny{display:flex;justify-content:space-between;align-items:center;border-bottom:1px dashed #e6ecf4;padding:8px 0;font-size:13px;color:#405065;letter-spacing:.2px}
+    .tiny:last-child{border-bottom:none}
+    .analysis-row{display:flex;gap:10px;flex-wrap:wrap}
+    .analysis-btn{flex:1;min-width:134px;border:0;color:#fff;font-weight:900;padding:12px 14px;border-radius:12px;cursor:pointer;box-shadow:var(--shadow);transition:all .3s ease;text-shadow:0 1px 2px rgba(0,0,0,.1);letter-spacing:.3px}
+    .analysis-btn:hover{transform:translateY(-3px);box-shadow:0 12px 24px rgba(0,0,0,.2)}
+    .analysis-btn:active{transform:translateY(-1px)}
+    .orange{background:linear-gradient(180deg,#ffbf4d,#f08b21)}
+    .blue{background:linear-gradient(180deg,#4d91ff,#215fd2)}
+    .green{background:linear-gradient(180deg,#35bf7f,#1c9b60)}
+    .analysis-note{margin-top:12px;color:var(--muted);font-size:12px;line-height:1.5;letter-spacing:.2px;padding:8px;background:rgba(79,142,247,.03);border-radius:8px;border-left:3px solid rgba(79,142,247,.2)}
+    .map-wrap{position:relative;min-width:0;background:#cfe1f3}
+    #map{height:100%;width:100%}
+    .tabs{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:900;flex-wrap:wrap;justify-content:center;pointer-events:none}
+    .tab{pointer-events:auto;background:rgba(255,255,255,.82);border:1px solid rgba(0,0,0,.06);border-radius:8px;padding:12px 18px;font-weight:800;color:#39475f;box-shadow:var(--shadow);cursor:pointer;user-select:none;transition:all .3s ease;letter-spacing:.3px}
+    .tab:hover{background:rgba(255,255,255,.95);transform:translateY(-2px)}
+    .tab.active{background:linear-gradient(135deg,#dfe6f8,#e8f0ff);border-color:#b8c9e8}
+    .legend{position:absolute;right:16px;bottom:16px;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border:1px solid rgba(0,0,0,.08);border-radius:16px;padding:14px 16px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:800;min-width:170px;font-size:14px;font-weight:600}
+    .legend-row{display:flex;align-items:center;gap:10px;margin:8px 0}
+    .legend-swatch{width:20px;height:12px;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,.1)}
+    .note{position:absolute;left:16px;bottom:16px;width:230px;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border:1px solid rgba(0,0,0,.08);border-radius:16px;padding:12px 14px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:800;color:#334155;font-size:13px;line-height:1.5;font-weight:500}
+    .history-list{list-style:none;padding:0;margin:0}
+    .history-item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 8px;border-bottom:1px solid #edf1f7;font-size:14px;border-radius:8px;transition:all .2s ease;cursor:pointer}
+    .history-item:hover{background:rgba(47,124,246,.05)}
+    .history-item:last-child{border-bottom:none}
+    .dot{width:12px;height:12px;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,.15)}
+    .dot.red{background:var(--red)}.dot.orange{background:var(--amber)}.dot.green{background:var(--green)}
+    .chart-holder{height:230px}
+    /* Modals */
+    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(8,14,26,.55);z-index:5000;padding:18px;backdrop-filter:blur(4px)}
+    .modal.show{display:flex}
+    .modal-box{width:min(420px,96vw);background:#fff;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.3);border:1px solid #e5e9f2;overflow:hidden;animation:slideUp .3s cubic-bezier(.4,0,.2,1)}
+    @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+    .modal-head{padding:16px 18px;background:linear-gradient(135deg,#f9fbff,#eef3ff);font-weight:1000;font-size:18px;color:#243247;border-bottom:1px solid #e5e9f2;letter-spacing:.3px}
+    .modal-body{padding:16px 18px;color:#273247;white-space:pre-line;line-height:1.6;font-size:14px}
+    .modal-foot{padding:0 18px 16px}
+    .close-btn{border:0;background:linear-gradient(180deg,#3c8cff,#1d5fd6);color:#fff;border-radius:12px;padding:11px 18px;font-weight:900;cursor:pointer;transition:all .3s ease;letter-spacing:.3px}
+    .close-btn:hover{transform:translateY(-2px);box-shadow:0 8px 16px rgba(28,93,216,.3)}
+    .loading{display:none;align-items:center;gap:10px;font-size:13px;color:#55657e;margin-top:10px}
+    .loading.show{display:flex}
+    .spinner{width:16px;height:16px;border-radius:50%;border:3px solid #dbe3ef;border-top-color:#2f7cf6;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    /* Selected box */
+    #selectedBox{padding:10px 16px 12px}
+    #selectedBox .kv{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:8px 10px;border-bottom:1px dashed #e6ecf4;font-size:13px;line-height:1.3;border-radius:6px;transition:all .2s ease}
+    #selectedBox .kv:hover{background:rgba(47,124,246,.05)}
+    #selectedBox .kv:last-child{border-bottom:none;padding-bottom:4px}
+    #selectedBox .kv span:first-child{color:#32435c;flex:1 1 auto;padding-right:10px;font-weight:600;letter-spacing:.2px}
+    #selectedBox .kv span:last-child{font-weight:800;color:#243247;text-align:right;white-space:nowrap;flex:0 0 auto}
+    #selectedCard{border-radius:20px}
+    #selectedCard .card-header{font-size:18px}
+    /* Pet mascot */
+    .pet-wrap{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px;padding:12px 12px 10px;background:linear-gradient(135deg,#eef6ff,#f4f9ff);border-radius:16px;border:1px solid #d0e4f8}
+    .pet-avatar{flex-shrink:0;width:64px;height:72px}
+    .pet-bubble{flex:1;background:#fff;border-radius:14px;padding:10px 13px;position:relative;border:1px solid #d0e4f8;box-shadow:0 4px 12px rgba(47,124,246,.08);font-size:13px;color:#273247;line-height:1.55}
+    .pet-bubble::before{content:'';position:absolute;left:-8px;top:18px;border:8px solid transparent;border-right-color:#d0e4f8;border-left:none}
+    .pet-bubble::after{content:'';position:absolute;left:-7px;top:18px;border:8px solid transparent;border-right-color:#fff;border-left:none}
+    .pet-name{font-weight:900;color:#2360d6;font-size:12px;margin-bottom:4px;letter-spacing:.3px}
+    .pet-step{font-size:11px;color:#64748b;margin-top:6px;font-weight:600;letter-spacing:.3px}
+    #tutorialModal .modal-box{max-width:490px}
+    #tutorialText{min-height:60px;font-size:13.5px;white-space:pre-line}
+    #tutorialOk,#tutorialNext{min-width:92px}
+    /* Drain info modal */
+    #drainModal .modal-box{max-width:460px}
+    .drain-scale{display:flex;align-items:center;margin:10px 0;border-radius:12px;overflow:hidden;height:30px;font-size:11px;font-weight:800}
+    .drain-scale-seg{flex:1;display:flex;align-items:center;justify-content:center;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+    .drain-kv{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed #e6ecf4;font-size:13px}
+    .drain-kv:last-child{border-bottom:none}
+    .drain-kv span:first-child{color:#475569;font-weight:600}
+    .drain-kv span:last-child{font-weight:800;color:#1e3a5f}
+    @media (max-width:1180px){
+      body{overflow:auto}
+      .layout{grid-template-columns:1fr;height:auto}
+      .sidebar{border-right:none;border-left:none;border-bottom:1px solid #d5deec}
+      .sidebar.right{border-left:none;border-top:1px solid #d5deec}
+      .map-wrap{height:72vh}
+      .note{display:none}
+    }
+    @media (max-width:768px){
+      .topbar{padding:0 12px}
+      .top-actions{gap:6px}
+      .btn.small{padding:8px 10px;font-size:12px}
+      .layout{grid-template-rows: auto 1fr auto; grid-template-columns: 1fr}
+      .sidebar{display:none}
+      .sidebar.right{display:none}
+      .map-wrap{height:60vh}
+      .card{margin-bottom:8px}
+      .intro{font-size:16px}
+      .subtle{font-size:11px}
+      .var-name{font-size:14px}
+      .var-value{font-size:16px}
+      .gauge-center{font-size:14px}
+      .tiny{font-size:11px}
+      .modal-box{width:95vw;max-width:400px}
+      .pet-wrap{gap:8px;padding:10px}
+      .pet-avatar{width:48px;height:54px}
+      .pet-bubble{font-size:12px;padding:8px 10px}
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><span class="drop"></span> Flood Risk AI</div>
+    <div class="top-actions">
+      <button class="btn ghost small" onclick="toggleLang()" id="btnLang">🌐 EN</button>
+      <button class="btn ghost small" id="btnTutorial" data-i18n="btnTutorial">How to use</button>
+      <button class="btn ghost small" id="btnSimRain" data-i18n="btnSimRain">Simulate +20% Rainfall</button>
+      <button class="btn ghost small" id="btnCompare" data-i18n="btnCompare">Compare Locations</button>
+      <button class="btn ghost small" id="btnClear" data-i18n="btnClear">Clear Markers</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="intro" data-i18n="intro">Click the map to analyze flood risk.</div>
+      <div class="subtle" data-i18n="subtitle">All inputs are scaled 0–100. Elevation, vegetation, river distance, and drainage are inverted in the FRI formula.</div>
+
+      <div class="card">
+        <div class="card-header" data-i18n="inputData">Input Data</div>
+        <div class="card-body">
+
+          <div class="var-group">
+            <div class="var-top">
+              <div class="var-name">Rainfall <span class="tag w">Wt. 0.28</span></div>
+              <div class="var-value" id="rainVal">0.80</div>
+            </div>
+            <input id="rain" class="slider" type="range" min="0" max="100" value="80">
+            <div class="var-note"><span>Normalized: <span id="rainNorm">80</span> mm</span><span data-i18n="direct">Direct</span></div>
+          </div>
+
+          <div class="var-group">
+            <div class="var-top">
+              <div class="var-name">Elevation <span class="tag inv" data-i18n="inverted">Inverted</span> <span class="tag w">Wt. 0.22</span></div>
+              <div class="var-value" id="elevVal">0.80</div>
+            </div>
+            <input id="elev" class="slider" type="range" min="0" max="100" value="80">
+            <div class="var-note"><span>Normalized: <span id="elevNorm">80</span> m</span><span data-i18n="lowHigherRisk">Low = higher risk</span></div>
+          </div>
+
+          <div class="var-group">
+            <div class="var-top">
+              <div class="var-name">Building Density <span class="tag w">Wt. 0.18</span></div>
+              <div class="var-value" id="densityVal">0.85</div>
+            </div>
+            <input id="density" class="slider" type="range" min="0" max="100" value="85">
+            <div class="var-note"><span>Normalized: <span id="densityNorm">85</span> %</span><span data-i18n="direct">Direct</span></div>
+          </div>
+
+          <div class="var-group">
+            <div class="var-top">
+              <div class="var-name">Vegetation <span class="tag inv" data-i18n="inverted">Inverted</span> <span class="tag w">Wt. 0.13</span></div>
+              <div class="var-value" id="vegVal">0.15</div>
+            </div>
+            <input id="veg" class="slider" type="range" min="0" max="100" value="15">
+            <div class="var-note"><span>Normalized: <span id="vegNorm">15</span> %</span><span data-i18n="lowHigherRisk">Low = higher risk</span></div>
+          </div>
+
+          <div class="var-group">
+            <div class="var-top">
+              <div class="var-name">Distance to River <span class="tag inv" data-i18n="inverted">Inverted</span> <span class="tag w">Wt. 0.09</span></div>
+              <div class="var-value" id="riverVal">0.35</div>
+            </div>
+            <input id="river" class="slider" type="range" min="0" max="100" value="35">
+            <div class="var-note"><span>Normalized: <span id="riverNorm">35</span> m</span><span data-i18n="farLowerRisk">Far = lower risk</span></div>
+          </div>
+
+          <div class="var-group">
+            <div class="var-top">
+              <div class="var-name">
+                Drainage <span class="tag inv" data-i18n="inverted">Inverted</span> <span class="tag w">Wt. 0.10</span>
+                <button class="info-btn" id="btnDrainInfo" title="Info">?</button>
+              </div>
+              <div class="var-value" id="drainVal">0.55</div>
+            </div>
+            <input id="drain" class="slider" type="range" min="0" max="100" value="55">
+            <div class="var-note"><span>Normalized: <span id="drainNorm">55</span> %</span><span data-i18n="highLowerRisk">High = lower risk</span></div>
+          </div>
+
+          <div style="display:grid;gap:10px;margin-top:16px;">
+            <button class="btn primary" id="btnManualPredict" data-i18n="btnPredict" style="width:100%;padding:14px 16px;border-radius:16px;font-size:16px;">Predict from Manual Input</button>
+            <button class="btn ghost" id="btnResetInputs" data-i18n="btnReset" style="width:100%;padding:13px 16px;border-radius:16px;font-size:15px;">Reset Inputs</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header" data-i18n="floodRiskResult">Flood Risk Result</div>
+        <div class="card-body result-wrap">
+          <div class="gauge">
+            <div class="gauge-center">
+              <div class="score" id="scoreGauge">—</div>
+              <div class="risk low" id="riskLabel">Flood Risk: —</div>
+            </div>
+          </div>
+          <div class="riskbar"><div id="riskBar" style="width:0%"></div></div>
+          <div class="tiny"><span data-i18n="riskPercentage">Risk Percentage</span><strong id="riskPct">—</strong></div>
+          <div class="tiny"><span data-i18n="confidence">Confidence</span><strong id="confidenceVal">—</strong></div>
+          <div class="tiny"><span data-i18n="timestamp">Timestamp</span><strong id="timestampVal">—</strong></div>
+          <div style="margin-top:12px;padding:14px;background:linear-gradient(135deg,#eef4ff,#f0f9ff);border-radius:14px;border-left:5px solid #2f7cf6;box-shadow:0 4px 12px rgba(47,124,246,.1)">
+            <b style="font-size:14px;color:#1c5fd8"><span data-i18n="mlAiAnalysis">ML AI Analysis</span></b>
+            <div id="aiInsight" style="font-size:13px;margin-top:8px;line-height:1.5;color:#334155;font-weight:500" data-i18n="clickMapAnalyze">Click map to analyze</div>
+            <div id="aiReco" style="font-size:12px;margin-top:10px;padding:10px;background:#fff;border-radius:10px;color:#1f2937;border:1px solid rgba(47,124,246,.1);line-height:1.4" data-i18n="recommendationsLoading">Recommendations loading...</div>
+            <div id="aiConfidence" style="font-size:11px;margin-top:8px;padding:8px;background:#fff;border-radius:8px;color:#64748b;border:1px solid rgba(79,142,247,.1)" data-i18n="modelConfidenceNA">Model confidence: N/A</div>
+            <div id="aiFactors" style="font-size:11px;margin-top:8px;padding:8px;background:#fff;border-radius:8px;color:#64748b;border:1px solid rgba(79,142,247,.1)" data-i18n="factorsNA">Factors: N/A</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header" data-i18n="advancedAnalysis">Advanced Analysis</div>
+        <div class="card-body">
+          <div class="analysis-row">
+            <button class="analysis-btn orange" id="btnSimRain2" data-i18n="btnSimRain2">Simulate +20% Rainfall</button>
+            <button class="analysis-btn blue" id="btnUrban" data-i18n="btnUrban">Urban Expansion</button>
+            <button class="analysis-btn green" id="btnDrainage" data-i18n="btnDrainage">Increase Drainage</button>
+          </div>
+          <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div data-i18n="calculatingScenario">Calculating scenario...</div>
+          </div>
+          <div class="analysis-note" data-i18n="tryScenarios">
+            Try scenarios to see how the FRI changes. Compare mode stores two locations and shows a direct result.
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="map-wrap">
+      <div class="tabs">
+        <div class="tab active" data-tab="compare" data-i18n="tabCompare">Location Comparison</div>
+        <div class="tab" data-tab="scenario" data-i18n="tabScenario">Scenario Analysis</div>
+        <div class="tab" data-tab="history" data-i18n="tabHistory">History</div>
+      </div>
+      <div id="map"></div>
+      <div class="note" data-i18n="clickCompare">Click 2 locations to compare them.<br>The panel on the left shows the active variables and the final FRI.</div>
+      <div class="legend">
+        <div style="font-weight:900;margin-bottom:4px" data-i18n="legend">Legend</div>
+        <div class="legend-row"><span class="legend-swatch" style="background:#9acd32"></span><span data-i18n="low">Low</span> (0–0.3)</div>
+        <div class="legend-row"><span class="legend-swatch" style="background:#f5a524"></span><span data-i18n="medium">Medium</span> (0.3–0.6)</div>
+        <div class="legend-row"><span class="legend-swatch" style="background:#e4554d"></span><span data-i18n="high">High</span> (0.6–1)</div>
+      </div>
+    </section>
+
+    <aside class="sidebar right">
+      <div class="card" id="selectedCard">
+        <div class="card-header" id="selectedHeader" data-i18n="selectedLocation">Selected Location</div>
+        <div class="card-body" id="selectedBox">
+          <div class="kv"><span data-i18n="location">Location</span><span id="locName">—</span></div>
+          <div class="kv"><span data-i18n="score">Score</span><span id="locScore">—</span></div>
+          <div class="kv"><span data-i18n="confidence">Confidence</span><span id="locConf">—</span></div>
+          <div class="kv"><span data-i18n="elevationVal">Elevation</span><span id="locElev">—</span></div>
+          <div class="kv"><span data-i18n="rainfallVal">Rainfall</span><span id="locRain">—</span></div>
+          <div class="kv"><span data-i18n="buildingDensityVal">Building Density</span><span id="locBuild">—</span></div>
+          <div class="kv"><span data-i18n="vegetationVal">Vegetation</span><span id="locVeg">—</span></div>
+          <div class="kv"><span data-i18n="distanceToRiverVal">Distance to River</span><span id="locRiver">—</span></div>
+          <div class="kv"><span data-i18n="drainageVal">Drainage Capacity</span><span id="locDrain">—</span></div>
+          <div class="kv"><span data-i18n="riskCategory">Risk Category</span><span id="locRisk">—</span></div>
+        </div>
+      </div>
+
+      <div class="card" id="vizCard">
+        <div class="card-header" data-i18n="visualizationTools">Visualization Tools</div>
+        <div class="card-body">
+          <div class="chart-holder"><canvas id="chart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card" id="historyCard">
+        <div class="card-header" id="historyHeader" data-i18n="history">History</div>
+        <div class="card-body">
+          <ul class="history-list" id="historyList"></ul>
+        </div>
+      </div>
+
+      <div class="card" id="scenarioCard">
+        <div class="card-header" id="scenarioHeader" data-i18n="scenario">Scenario Analysis</div>
+        <div class="card-body">
+          <div class="subtle" style="margin:0" data-i18n="scenarioNote">
+            Scenario controls are active via the buttons on the left.
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header" data-i18n="aboutModel">About Model</div>
+        <div class="card-body">
+          <div class="subtle" style="margin:0" data-i18n="aboutModelDesc">
+            FRI = weighted sum of rainfall (0.28), inverse elevation (0.22), building density (0.18),
+            inverse vegetation (0.13), inverse river distance (0.09), and inverse drainage (0.10).
+            Designed for explainable flood-risk screening.
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- General modal -->
+  <div class="modal" id="modal">
+    <div class="modal-box">
+      <div class="modal-head" id="modalHead">Result</div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-foot"><button class="close-btn" id="modalClose">OK</button></div>
+    </div>
+  </div>
+
+  <!-- Tutorial modal with Basah pet mascot -->
+  <div class="modal" id="tutorialModal">
+    <div class="modal-box" style="max-width:490px">
+      <div class="modal-head" data-i18n="tutorial">Quick Tutorial</div>
+      <div class="modal-body" style="padding-bottom:8px">
+        <div class="pet-wrap">
+          <!-- Basah — water-drop mascot SVG -->
+          <svg class="pet-avatar" viewBox="0 0 64 72" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="dg" cx="38%" cy="32%" r="62%">
+                <stop offset="0%" stop-color="#7dd3fc"/>
+                <stop offset="100%" stop-color="#1d4ed8"/>
+              </radialGradient>
+              <radialGradient id="sg" cx="28%" cy="22%" r="52%">
+                <stop offset="0%" stop-color="rgba(255,255,255,.7)"/>
+                <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+              </radialGradient>
+            </defs>
+            <path d="M32 3 C32 3,6 30,6 46 C6 60,18 68,32 68 C46 68,58 60,58 46 C58 30,32 3,32 3Z" fill="url(#dg)"/>
+            <path d="M32 3 C32 3,6 30,6 46 C6 60,18 68,32 68 C46 68,58 60,58 46 C58 30,32 3,32 3Z" fill="url(#sg)"/>
+            <circle cx="23" cy="47" r="5" fill="#1e3a6e"/>
+            <circle cx="41" cy="47" r="5" fill="#1e3a6e"/>
+            <circle cx="24.5" cy="45.5" r="1.8" fill="white"/>
+            <circle cx="42.5" cy="45.5" r="1.8" fill="white"/>
+            <path d="M23 57 Q32 65 41 57" stroke="#1e3a6e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <ellipse cx="18" cy="54" rx="3.5" ry="2" fill="rgba(255,130,130,.4)"/>
+            <ellipse cx="46" cy="54" rx="3.5" ry="2" fill="rgba(255,130,130,.4)"/>
+            <!-- hat -->
+            <rect x="20" y="12" width="24" height="4" rx="2" fill="#1d4ed8" opacity=".8"/>
+            <rect x="24" y="4" width="16" height="10" rx="3" fill="#2563eb" opacity=".9"/>
+          </svg>
+          <div class="pet-bubble">
+            <div class="pet-name" id="petName">Basah</div>
+            <div id="tutorialText">...</div>
+            <div class="pet-step" id="petStep"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot" style="display:flex;gap:10px;justify-content:flex-start">
+        <button class="close-btn" id="tutorialOk" data-i18n="tutorialOk">OK</button>
+        <button class="btn ghost small" id="tutorialNext" data-i18n="tutorialNext" style="padding:10px 18px;border-radius:12px;font-weight:900">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Drainage Info modal -->
+  <div class="modal" id="drainModal">
+    <div class="modal-box" style="max-width:460px">
+      <div class="modal-head" id="drainModalHead">Drainage Capacity</div>
+      <div class="modal-body" style="padding:14px 18px 12px;white-space:normal">
+        <p id="drainDesc" style="margin:0 0 10px;line-height:1.6;font-size:13.5px;color:#334155"></p>
+        <div style="font-weight:800;font-size:12px;color:#475569;margin-bottom:6px" id="drainScaleLbl">Drainage Capacity Scale:</div>
+        <div class="drain-scale">
+          <div class="drain-scale-seg" style="background:#e4554d;border-radius:10px 0 0 10px" id="dsP">Poor</div>
+          <div class="drain-scale-seg" style="background:#f08b21">0–33</div>
+          <div class="drain-scale-seg" style="background:#f5c542;color:#6b4000" id="dsM">Moderate</div>
+          <div class="drain-scale-seg" style="background:#a3cf4e;color:#2d5a00">34–66</div>
+          <div class="drain-scale-seg" style="background:#32b36b" id="dsG">Good</div>
+          <div class="drain-scale-seg" style="background:#1e8c5c;border-radius:0 10px 10px 0">67–100</div>
+        </div>
+        <div id="drainKvs" style="margin-top:12px"></div>
+        <div id="drainTip" style="margin-top:10px;padding:10px;background:#f0f9ff;border-radius:10px;border-left:4px solid #2f7cf6;font-size:12px;color:#1e3a5f;line-height:1.55"></div>
+      </div>
+      <div class="modal-foot"><button class="close-btn" id="drainModalClose" data-i18n="tutorialOk">OK</button></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
